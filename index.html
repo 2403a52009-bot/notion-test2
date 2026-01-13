@@ -12,7 +12,7 @@
       padding: 20px;
     }
     h1 { color: #60a5fa; }
-    input { margin: 20px 0; }
+    input, select { margin: 15px 0; padding: 6px; }
     table {
       border-collapse: collapse;
       margin-top: 20px;
@@ -30,9 +30,14 @@
 <body>
 
   <h1>Skill Performance Analyzer</h1>
-  <p>Upload a CSV file with columns: <b>Assignment, Scored, Full Marks, Skill</b></p>
+  <p>Upload CSV with columns: <b>Assignment, Scored, Full Marks, Skill</b></p>
 
   <input type="file" id="csvFile" accept=".csv" />
+  <br />
+  <label>Select Skill: </label>
+  <select id="skillSelect">
+    <option value="">-- Select Skill --</option>
+  </select>
 
   <table id="resultTable">
     <thead>
@@ -51,9 +56,12 @@
   <script>
     const fileInput = document.getElementById('csvFile');
     const tableBody = document.querySelector('#resultTable tbody');
+    const skillSelect = document.getElementById('skillSelect');
     let chart;
+    let skillData = {};
 
     fileInput.addEventListener('change', handleFile);
+    skillSelect.addEventListener('change', handleSkillChange);
 
     function handleFile(event) {
       const file = event.target.files[0];
@@ -72,59 +80,77 @@
       const scoredIndex = headers.indexOf('Scored');
       const fullIndex = headers.indexOf('Full Marks');
 
-      const skills = {};
+      skillData = {};
 
       rows.forEach(row => {
         const skill = row[skillIndex];
         const scored = Number(row[scoredIndex]);
         const full = Number(row[fullIndex]);
 
-        if (!skills[skill]) {
-          skills[skill] = { scored: 0, full: 0 };
+        if (!skillData[skill]) {
+          skillData[skill] = { scored: 0, full: 0 };
         }
-        skills[skill].scored += scored;
-        skills[skill].full += full;
+        skillData[skill].scored += scored;
+        skillData[skill].full += full;
       });
 
-      renderTable(skills);
-      renderChart(skills);
+      populateSkillDropdown();
+      clearDisplay();
     }
 
-    function renderTable(skills) {
+    function populateSkillDropdown() {
+      skillSelect.innerHTML = '<option value="">-- Select Skill --</option>';
+      Object.keys(skillData).forEach(skill => {
+        const option = document.createElement('option');
+        option.value = skill;
+        option.textContent = skill;
+        skillSelect.appendChild(option);
+      });
+    }
+
+    function handleSkillChange() {
+      const selectedSkill = skillSelect.value;
+      if (!selectedSkill) {
+        clearDisplay();
+        return;
+      }
+      const data = skillData[selectedSkill];
+      renderTable(selectedSkill, data);
+      renderChart(selectedSkill, data);
+    }
+
+    function clearDisplay() {
       tableBody.innerHTML = '';
-      Object.entries(skills).forEach(([skill, data]) => {
-        const percent = ((data.scored / data.full) * 100).toFixed(2);
-        const row = `<tr>
-          <td>${skill}</td>
-          <td>${data.scored}</td>
-          <td>${data.full}</td>
-          <td>${percent}%</td>
-        </tr>`;
-        tableBody.insertAdjacentHTML('beforeend', row);
-      });
+      if (chart) chart.destroy();
     }
 
-    function renderChart(skills) {
-      const labels = Object.keys(skills);
-      const data = labels.map(s => (skills[s].scored / skills[s].full) * 100);
+    function renderTable(skill, data) {
+      tableBody.innerHTML = '';
+      const percent = ((data.scored / data.full) * 100).toFixed(2);
+      const row = `<tr>
+        <td>${skill}</td>
+        <td>${data.scored}</td>
+        <td>${data.full}</td>
+        <td>${percent}%</td>
+      </tr>`;
+      tableBody.insertAdjacentHTML('beforeend', row);
+    }
 
+    function renderChart(skill, data) {
       if (chart) chart.destroy();
 
       chart = new Chart(document.getElementById('skillChart'), {
         type: 'bar',
         data: {
-          labels,
+          labels: ['Scored', 'Full Marks'],
           datasets: [{
-            label: 'Skill Performance (%)',
-            data
+            label: skill,
+            data: [data.scored, data.full]
           }]
         },
         options: {
           scales: {
-            y: {
-              beginAtZero: true,
-              max: 100
-            }
+            y: { beginAtZero: true }
           }
         }
       });
