@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Skill Performance Analyzer</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0b1020;
+      color: #e5e7eb;
+      padding: 20px;
+    }
+    h1 { color: #60a5fa; }
+    input { margin: 20px 0; }
+    table {
+      border-collapse: collapse;
+      margin-top: 20px;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid #374151;
+      padding: 10px;
+      text-align: center;
+    }
+    th { background: #111827; }
+    canvas { margin-top: 30px; }
+  </style>
+</head>
+<body>
+
+  <h1>Skill Performance Analyzer</h1>
+  <p>Upload a CSV file with columns: <b>Assignment, Scored, Full Marks, Skill</b></p>
+
+  <input type="file" id="csvFile" accept=".csv" />
+
+  <table id="resultTable">
+    <thead>
+      <tr>
+        <th>Skill</th>
+        <th>Total Scored</th>
+        <th>Total Full Marks</th>
+        <th>Performance (%)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <canvas id="skillChart" width="400" height="200"></canvas>
+
+  <script>
+    const fileInput = document.getElementById('csvFile');
+    const tableBody = document.querySelector('#resultTable tbody');
+    let chart;
+
+    fileInput.addEventListener('change', handleFile);
+
+    function handleFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = e => processCSV(e.target.result);
+      reader.readAsText(file);
+    }
+
+    function processCSV(text) {
+      const rows = text.trim().split('\n').map(r => r.split(','));
+      const headers = rows.shift();
+
+      const skillIndex = headers.indexOf('Skill');
+      const scoredIndex = headers.indexOf('Scored');
+      const fullIndex = headers.indexOf('Full Marks');
+
+      const skills = {};
+
+      rows.forEach(row => {
+        const skill = row[skillIndex];
+        const scored = Number(row[scoredIndex]);
+        const full = Number(row[fullIndex]);
+
+        if (!skills[skill]) {
+          skills[skill] = { scored: 0, full: 0 };
+        }
+        skills[skill].scored += scored;
+        skills[skill].full += full;
+      });
+
+      renderTable(skills);
+      renderChart(skills);
+    }
+
+    function renderTable(skills) {
+      tableBody.innerHTML = '';
+      Object.entries(skills).forEach(([skill, data]) => {
+        const percent = ((data.scored / data.full) * 100).toFixed(2);
+        const row = `<tr>
+          <td>${skill}</td>
+          <td>${data.scored}</td>
+          <td>${data.full}</td>
+          <td>${percent}%</td>
+        </tr>`;
+        tableBody.insertAdjacentHTML('beforeend', row);
+      });
+    }
+
+    function renderChart(skills) {
+      const labels = Object.keys(skills);
+      const data = labels.map(s => (skills[s].scored / skills[s].full) * 100);
+
+      if (chart) chart.destroy();
+
+      chart = new Chart(document.getElementById('skillChart'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Skill Performance (%)',
+            data
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100
+            }
+          }
+        }
+      });
+    }
+  </script>
+
+</body>
+</html>
